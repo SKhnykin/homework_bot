@@ -83,8 +83,7 @@ def check_response(response):
 
 
 def parse_status(homework) -> str:
-    """Извлекаем из информации о конкретной домашней работе
-     статус этой работы."""
+    """Извлекаем из информации о домашней работе статус этой работы."""
     homework_name = homework.get("homework_name")
     homework_status = homework.get("status")
     verdict = HOMEWORK_STATUSES[homework_status]
@@ -101,8 +100,8 @@ def check_tokens() -> bool:
         logger.info("Переменные окружения прочитаны.")
         return True
     else:
-        logger.critical('Отсутствуют переменные окружения для работы программы.'
-                        ' Работа программы будет завершена.')
+        logger.critical('Отсутствуют переменные окружения. Работа программы'
+                        ' будет завершена.')
         return False
 
 
