@@ -151,3 +151,4 @@ posts/static/
 media/
 
 .env
+my_bot.log
