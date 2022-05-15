@@ -1,12 +1,12 @@
-import requests
-import logging
 import os
 import sys
 import time
 import telegram
+import requests
+import logging
 
-from dotenv import load_dotenv
 from logging.handlers import RotatingFileHandler
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -38,8 +38,13 @@ logger.addHandler(handler)
 
 def send_message(bot, message):
     """Функция отправки сообщения в Телеграм."""
-    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-
+    logger.info("Начинаем отправку сообщения в Telegram")
+    try:
+        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    except Exception as error:
+        logger.error(f'Ошибка {error} при отправке сообщения')
+    else:
+        logger.info("Сообщение отправлено")
 
 def get_api_answer(current_timestamp) -> dict:
     """Делает запрос к API-сервиса."""
@@ -51,7 +56,6 @@ def get_api_answer(current_timestamp) -> dict:
             ENDPOINT, params=params, headers=HEADERS
         )
     except ValueError as error:
-        logger.error(f'{error}: не получили api-ответ')
         raise error
     error_message = (
         f'Проблемы соединения с сервером'
@@ -59,7 +63,6 @@ def get_api_answer(current_timestamp) -> dict:
     )
     if response.status_code == requests.codes.ok:
         return response.json()
-    logger.error(error_message)
     raise TypeError(error_message)
 
 
@@ -67,47 +70,43 @@ def check_response(response):
     """Проверяем ответ API на корректность."""
     err_key = 'Ошибка: homeworks не найден в ответе'
     err_index = 'Ошибка: Домашняя работа не найдена'
-    if isinstance(response, dict) is False:
+    if not isinstance(response, dict):
         raise TypeError("api answer is not dict")
     try:
         homework_list = response["homeworks"]
     except KeyError:
-        logger.error(err_key)
         raise KeyError(err_key)
     try:
         homework_list[0]
     except IndexError:
-        logger.error(err_index)
         raise IndexError(err_index)
     return homework_list
 
 
 def parse_status(homework) -> str:
     """Извлекаем из информации о домашней работе статус этой работы."""
-    homework_name = homework.get("homework_name")
-    homework_status = homework.get("status")
+    if 'homework_name' not in homework:
+        raise KeyError('Отсутствует ключ "homework_name" в ответе API')
+    if 'status' not in homework:
+        raise Exception('Отсутствует ключ "status" в ответе API')
+    homework_name = homework['homework_name']
+    homework_status = homework['status']
+    if homework_status not in HOMEWORK_STATUSES:
+        raise Exception(f'Неизвестный статус работы: {homework_status}')
     verdict = HOMEWORK_STATUSES[homework_status]
-    if verdict is not None:
-        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-    else:
-        logger.error('Неизвестный статус проверки работы')
-        return f'Статус проверки работы "{homework_name}". Неопределен'
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def check_tokens() -> bool:
     """Функция проверяющая доступность переменных окружения."""
-    if all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
-        logger.info("Переменные окружения прочитаны.")
-        return True
-    else:
-        logger.critical('Отсутствуют переменные окружения. Работа программы'
-                        ' будет завершена.')
-        return False
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
+        logger.critical('Отсутствуют переменные окружения. Работа программы'
+                        ' будет завершена.')
         sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time()) - RETRY_TIME
@@ -132,6 +131,7 @@ def main():
             if message != error_work:
                 error_work = message
                 send_message(bot, message)
+        finally:
             time.sleep(RETRY_TIME)
 
 
