@@ -45,7 +45,7 @@ def send_message(bot, message):
         logger.error(f'Ошибка {error} при отправке сообщения')
     else:
         logger.info("Сообщение отправлено")
-        
+
 
 def get_api_answer(current_timestamp) -> dict:
     """Делает запрос к API-сервиса."""
